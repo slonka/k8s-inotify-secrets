@@ -25,7 +25,7 @@ kubectl apply -f deployment.yaml
 To check if the script is running correctly and reacting to changes:
 
 ```bash
-kubectl logs -l app=secret-watcher
+kubectl logs -fl app=secret-watcher
 ```
 
 ## 5. Update the Secret
