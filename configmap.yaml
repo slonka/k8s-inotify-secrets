@@ -6,22 +6,41 @@ data:
   secret-watcher.sh: |
     #!/bin/bash
 
-    SECRET_FILE="/etc/secrets/my-secret"  # Update with your secret file path
+    SECRET_DIR="/etc/secrets"  # Directory where Kubernetes mounts secrets
+    SECRET_FILE="$SECRET_DIR/my-secret"  # Specific secret file to monitor
 
     echo "Monitoring $SECRET_FILE for changes..."
 
-    # Ensure inotifywait is available
+    # Ensure inotifywait is installed
     if ! command -v inotifywait &> /dev/null; then
-      echo "inotifywait could not be found. Install inotify-tools package."
+      echo "inotifywait not found. Install inotify-tools package."
       exit 1
     fi
 
-    # Monitor changes to the secret file
-    while true; do
-      inotifywait -e modify,create,delete "$SECRET_FILE" && {
-        echo "$(date): Secret file changed. Reloading..."
+    # Function to reload secret
+    reload_secret() {
+      if [[ -f "$SECRET_FILE" ]]; then
         NEW_SECRET=$(cat "$SECRET_FILE")
-        echo "New Secret Value: $NEW_SECRET"
-        # Add your application's reload logic here (e.g., restart services, update config)
-      }
+        echo "$(date): New secret value detected: $NEW_SECRET"
+        # Add your application's reload logic here (e.g., refresh configuration, restart service)
+      else
+        echo "$(date): Secret file is missing."
+      fi
+    }
+
+    # Main loop to establish inotify watches
+    while true; do
+      if [[ -f "$SECRET_FILE" ]]; then
+        echo "$(date): Setting up watch on $SECRET_FILE"
+        inotifywait -e delete_self -e modify -e close_write -- "$SECRET_FILE"
+
+        # Handle file events
+        if [[ $? -eq 0 ]]; then
+          echo "$(date): Change detected, reloading secret..."
+          reload_secret
+        fi
+      else
+        echo "$(date): $SECRET_FILE does not exist. Retrying watch setup in 1 second..."
+        sleep 1
+      fi
     done
