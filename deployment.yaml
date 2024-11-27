@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secret-watcher
+  labels:
+    app: secret-watcher
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secret-watcher
+  template:
+    metadata:
+      labels:
+        app: secret-watcher
+    spec:
+      containers:
+      - name: secret-watcher
+        image: devodev/inotify:latest # Lightweight image with bash
+        command: ["/bin/bash", "/app/secret-watcher.sh"]
+        volumeMounts:
+        - name: script-volume
+          mountPath: /app/secret-watcher.sh
+          subPath: secret-watcher.sh
+          readOnly: true
+        - name: secret-volume
+          mountPath: /etc/secrets
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+      volumes:
+      - name: script-volume
+        configMap:
+          name: secret-watcher-script
+      - name: secret-volume
+        secret:
+          secretName: my-secret  # Update to match your secret's name
